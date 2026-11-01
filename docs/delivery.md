@@ -20,11 +20,13 @@ Les contrôles SQL couvrent notamment isolation, approbation, droits, réservati
 
 Les tests IA/Meta utilisent des adaptateurs mockés et ne valident pas un fournisseur réel. Aucun message n’a été envoyé à un client réel. Les scénarios E2E privés supplémentaires sont fournis dans `tests/e2e/commerce.spec.ts` : devis, confirmation client, stock, paiement manuel, simulation, invitation, export et demande de formule, avec nettoyage des fixtures.
 
-## Activation distante en attente
+## Validation Supabase distante
 
-La base Supabase existante contient les migrations 001–003, déjà validées lors de la livraison précédente (Auth/Storage HTTP, catalogue, approbation et 14 scénarios navigateur). Au dernier contrôle de cette extension, les tables des migrations suivantes étaient encore absentes. **La recette HTTP complète des nouveaux modules attend donc l’exécution de `supabase/upgrade.sql`**, puis les tests d’intégration/live décrits dans le README. Ce script a été testé localement et ne doit être exécuté qu’une fois sur la base existante.
+L’utilisateur a exécuté `supabase/upgrade.sql` sur la base existante. La disponibilité des tables et des champs des migrations 004–009 a été vérifiée, notamment les droits de formules, liens de commande, reçus et réglages d’achat IA.
 
-Ne pas déployer cette extension sur le domaine de production avant la migration : les nouvelles pages utilisent ces tables et fonctions. Les clés API disponibles ne peuvent pas exécuter du DDL. Ne pas réexécuter `install.sql` sur la base existante.
+L’intégration HTTP réelle a réussi : Auth, attente/approbation/retrait d’accès, refus de l’auto-approbation, création de boutique, catalogue, agrégats, isolation, Storage privé et refus d’accès aux credentials. Les parcours commerciaux desktop et mobile ont aussi confirmé les devis privés, la confirmation client, la réservation unique de stock, l’encaissement manuel, la simulation sans envoi, les notes, l’invitation, l’export et la demande de formule. Les comptes et boutiques temporaires ont été nettoyés.
+
+**Ne pas réexécuter `upgrade.sql` ni `install.sql` sur ce projet déjà migré.** Pour les prochains changements, appliquer uniquement les nouvelles migrations. La configuration des fournisseurs et les callbacks du domaine de production restent propres au déploiement Vercel.
 
 ## Limites explicites
 
