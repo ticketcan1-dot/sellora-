@@ -1,13 +1,16 @@
 "use client";
+import { MessageText } from "@/components/message-text";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Play, Pause, Send, RotateCcw, ImagePlus } from "lucide-react";
 import { saveSettings, simulate } from "./actions";
 import type { AiSettings } from "./schema";
+import { parseMad } from "@/domains/catalog/schema";
 import { Notice } from "@/components/ui";
 type Message = { role: string; content: string };
 export function AssistantPanel({
   settings,
+  responseMode,
   configured,
   canEdit,
   canSimulate,
@@ -15,6 +18,7 @@ export function AssistantPanel({
   initialConversation,
 }: {
   settings: AiSettings;
+  responseMode: string;
   configured: boolean;
   canEdit: boolean;
   canSimulate: boolean;
@@ -36,6 +40,14 @@ export function AssistantPanel({
         emoji: form.get("emoji") === "on",
         cod: form.get("cod") === "on",
         paused,
+        checkout_enabled: form.get("checkout_enabled") === "on",
+        checkout_delivery_minor: parseMad(
+          String(form.get("checkout_delivery") || "0"),
+        ),
+        checkout_cities: String(form.get("checkout_cities") || "")
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean),
       });
       setNotice(result.error || "Personnalisation enregistrée.");
       router.refresh();
@@ -49,7 +61,7 @@ export function AssistantPanel({
         result.error ||
           (!paused
             ? "Assistant mis en pause."
-            : "Assistant réactivé pour les simulations."),
+            : "Assistant réactivé selon le mode configuré dans les canaux."),
       );
       router.refresh();
     });
@@ -104,7 +116,13 @@ export function AssistantPanel({
           <div className="row between">
             <h2>La voix de votre boutique</h2>
             <span className="badge">
-              {paused ? "En pause" : "Simulation uniquement"}
+              {paused
+                ? "En pause"
+                : responseMode === "automatic"
+                  ? "Automatique activé"
+                  : responseMode === "suggestion_only"
+                    ? "Validation humaine"
+                    : "Simulation uniquement"}
             </span>
           </div>
           <p>
@@ -178,6 +196,47 @@ export function AssistantPanel({
                   />
                 </label>
               ))}
+              <details>
+                <summary>Préparer des commandes avec l’assistant</summary>
+                <p>
+                  Une proposition concerne une seule variante non ambiguë. Le
+                  client doit confirmer le récapitulatif et ses coordonnées sur
+                  un lien privé ; aucun paiement n’est déclaré reçu.
+                </p>
+                <label>
+                  <input
+                    name="checkout_enabled"
+                    type="checkbox"
+                    defaultChecked={settings.checkout_enabled}
+                  />
+                  Autoriser les liens de commande préparés par l’IA
+                </label>
+                <label>
+                  Forfait de livraison de ces propositions (MAD)
+                  <input
+                    name="checkout_delivery"
+                    defaultValue={(
+                      settings.checkout_delivery_minor / 100
+                    ).toFixed(2)}
+                    pattern="[0-9]+([.,][0-9]{1,2})?"
+                    inputMode="decimal"
+                  />
+                </label>
+                <label>
+                  Villes desservies, séparées par des virgules
+                  <input
+                    name="checkout_cities"
+                    maxLength={4000}
+                    defaultValue={settings.checkout_cities.join(", ")}
+                  />
+                </label>
+                <small>
+                  Sans liste de villes, vous déclarez que ce forfait s’applique
+                  à toutes les villes. Les frais sont imposés par le serveur,
+                  jamais inventés par l’IA. Le mode de réponse doit être activé
+                  dans les canaux.
+                </small>
+              </details>
               <label>
                 <input
                   type="checkbox"
@@ -201,7 +260,7 @@ export function AssistantPanel({
             >
               {paused ? <Play size={15} /> : <Pause size={15} />}{" "}
               {paused
-                ? "Réactiver les simulations"
+                ? "Réactiver l’assistant"
                 : "Arrêt immédiat de l’assistant"}
             </button>
           )}
@@ -246,7 +305,9 @@ export function AssistantPanel({
                 >
                   {m.role === "user" ? "Vous · test" : "Assistant · simulation"}
                 </small>
-                <div>{m.content}</div>
+                <div>
+                  <MessageText text={m.content} />
+                </div>
               </div>
             ))}
             {pending && <p role="status">Traitement en cours…</p>}

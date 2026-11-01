@@ -1,3 +1,4 @@
+import { ActivityChart } from "@/domains/orders/activity-chart";
 import Link from "next/link";
 import {
   Package,
@@ -36,6 +37,11 @@ export default async function Dashboard({
     ]);
   if (metricError || lowError || !m)
     throw new Error("Impossible de calculer le tableau de bord.");
+  const { data: series, error: seriesError } = await client.rpc(
+    "dashboard_series",
+    { _org: o.id },
+  );
+  if (seriesError) throw new Error("Historique d’activité indisponible.");
   const products = { count: m.active_products };
   const convos = { count: m.conversations };
   const inStock = { count: m.in_stock };
@@ -155,14 +161,10 @@ export default async function Dashboard({
             <h2>Votre activité réelle</h2>
             <span className="badge">Depuis la création</span>
           </div>
-          <div className="chart-empty">
-            {!convos.count && !confirmed.length
-              ? "Vos premiers échanges et commandes apparaîtront ici."
-              : `${convos.count} conversations · ${confirmed.length} commandes confirmées`}
-          </div>
+          <ActivityChart series={series || []} />
           <div className="row between" style={{ paddingTop: 18 }}>
             <div>
-              <small>Montant réglé vérifié</small>
+              <small>Encaissements enregistrés</small>
               <h3 style={{ margin: 0 }}>{formatMad(paid)}</h3>
             </div>
             <div>
@@ -176,7 +178,8 @@ export default async function Dashboard({
           </div>
           <small>
             Conversations réelles ayant une commande confirmée / conversations
-            réelles. Les paiements ne sont pas encore intégrés.
+            réelles. Les saisies manuelles ne constituent pas une vérification
+            bancaire automatique.
           </small>
         </section>
         <section className="card">

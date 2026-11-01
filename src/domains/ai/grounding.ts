@@ -62,7 +62,7 @@ export function groundedReply(
     settings.tone === "concis"
       ? ""
       : `${c.hello}${settings.emoji ? " ✨" : ""} — ${settings.name}.\n\n`;
-  if (selection.intent === "product") {
+  if (selection.intent === "product" || selection.intent === "purchase") {
     if (!candidates.length || invalid)
       return {
         content: hello + c.unavailable + "\n" + settings.escalation,

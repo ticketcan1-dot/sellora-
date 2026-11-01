@@ -12,3 +12,11 @@ done
 docker exec -i "$container_name" psql -U postgres -d "$test_database" -v ON_ERROR_STOP=1 < supabase/tests/tenant-isolation.sql
 
 docker exec -i "$container_name" psql -U postgres -d "$test_database" -v ON_ERROR_STOP=1 < supabase/tests/account-approval.sql
+
+docker exec -i "$container_name" psql -U postgres -d "$test_database" -v ON_ERROR_STOP=1 < supabase/tests/commerce.sql
+
+docker exec -i "$container_name" psql -U postgres -d "$test_database" -v ON_ERROR_STOP=1 < supabase/tests/team-billing.sql
+
+docker exec -i "$container_name" psql -U postgres -d "$test_database" -v ON_ERROR_STOP=1 < supabase/tests/messaging-checkout.sql
+
+docker exec -i "$container_name" psql -U postgres -d "$test_database" -v ON_ERROR_STOP=1 < supabase/tests/ai-checkout.sql

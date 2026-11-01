@@ -1,3 +1,4 @@
+import { authDestination } from "@/domains/auth/destinations";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Clock3 } from "lucide-react";
@@ -8,7 +9,12 @@ import { ApprovalWatcher } from "@/domains/auth/approval-watcher";
 import { signOut } from "@/domains/auth/actions";
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const destination = authDestination((await searchParams).next);
   let loggedIn = false;
   let status = "pending";
   let unavailable = false;
@@ -26,7 +32,7 @@ export default async function Page() {
         .single();
       unavailable = Boolean(error);
       status = data?.approval_status || "pending";
-      if (status === "approved") redirect("/app");
+      if (status === "approved") redirect(destination);
     }
   }
   return (
@@ -51,7 +57,7 @@ export default async function Page() {
             migration 003.
           </div>
         ) : loggedIn ? (
-          <ApprovalWatcher />
+          <ApprovalWatcher destination={destination} />
         ) : (
           <p role="status">
             Consultez votre email pour confirmer votre adresse, puis
@@ -65,7 +71,10 @@ export default async function Page() {
           session encore valide dans ce navigateur.
         </small>
         <div className="row" style={{ marginTop: 24 }}>
-          <Link className="btn secondary" href="/connexion">
+          <Link
+            className="btn secondary"
+            href={"/connexion?next=" + encodeURIComponent(destination)}
+          >
             Aller à la connexion
           </Link>
           {loggedIn && (

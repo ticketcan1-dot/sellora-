@@ -1,4 +1,6 @@
 "use server";
+import { authDestination } from "./destinations";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/supabase/server";
@@ -8,6 +10,7 @@ function go(path: string, message: string): never {
 }
 export async function authenticate(form: FormData) {
   const mode = String(form.get("mode"));
+  const destination = authDestination(form.get("next"));
   const path =
     mode === "signup"
       ? "/inscription"
@@ -39,11 +42,13 @@ export async function authenticate(form: FormData) {
     const { error } = await client.auth.signUp({
       email: email.data,
       password: password.data,
-      options: { emailRedirectTo: `${appUrl()}/auth/callback` },
+      options: {
+        emailRedirectTo: `${appUrl()}/auth/callback?next=${encodeURIComponent(destination)}`,
+      },
     });
     if (error)
       go(path, "Inscription impossible. Réessayez ou contactez l’assistance.");
-    redirect("/attente?inscription=1");
+    redirect("/attente?inscription=1&next=" + encodeURIComponent(destination));
   }
   const { error } = await client.auth.signInWithPassword({
     email: email.data,
@@ -51,11 +56,21 @@ export async function authenticate(form: FormData) {
   });
   if (error)
     go(path, "Identifiants incorrects ou adresse email non confirmée.");
-  redirect("/app");
+  const { data: profile } = await client
+    .from("profiles")
+    .select("approval_status")
+    .single();
+  if (profile && profile.approval_status !== "approved")
+    redirect("/attente?next=" + encodeURIComponent(destination));
+  redirect(destination);
 }
 export async function signOut() {
   const client = await db();
   await client.auth.signOut();
+  const jar = await cookies();
+  jar.delete("sellora_org");
+  jar.delete({ name: "sellora_invitation_link", path: "/app/equipe" });
+  jar.delete({ name: "sellora_checkout_link", path: "/app/commandes" });
   redirect("/connexion");
 }
 export async function updatePassword(form: FormData) {

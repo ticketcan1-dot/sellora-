@@ -2,8 +2,8 @@ import { AuthForm } from "@/components/auth-form";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string }>;
+  searchParams: Promise<{ message?: string; next?: string }>;
 }) {
-  const { message } = await searchParams;
-  return <AuthForm mode="signin" message={message} />;
+  const { message, next } = await searchParams;
+  return <AuthForm mode="signin" message={message} returnTo={next} />;
 }

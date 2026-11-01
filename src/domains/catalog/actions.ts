@@ -39,15 +39,6 @@ export async function deleteProduct(id: string) {
     .eq("organization_id", organization.id)
     .eq("product_id", id);
   if (readError) return { error: "Lecture des images impossible." };
-  if (images?.length) {
-    const { error } = await client.storage
-      .from("catalog")
-      .remove(images.map((i) => i.path));
-    if (error)
-      return {
-        error: "Suppression des images impossible ; le produit a été conservé.",
-      };
-  }
   const { error } = await client
     .from("products")
     .delete()
@@ -55,8 +46,22 @@ export async function deleteProduct(id: string) {
     .eq("organization_id", organization.id);
   if (error)
     return {
-      error: "Suppression impossible. Une commande peut référencer ce produit.",
+      error:
+        "Suppression impossible. Une commande peut référencer ce produit ; ses photos ont été conservées.",
     };
+  if (images?.length) {
+    const { error: storageError } = await client.storage
+      .from("catalog")
+      .remove(images.map((i) => i.path));
+    if (storageError) {
+      revalidatePath("/app");
+      revalidatePath("/app/catalogue");
+      return {
+        error:
+          "Produit supprimé. Le nettoyage de ses fichiers privés reste à effectuer dans le stockage de la boutique.",
+      };
+    }
+  }
   revalidatePath("/app");
   revalidatePath("/app/catalogue");
   return { ok: true };

@@ -1,8 +1,11 @@
 "use server";
+import { randomBytes, createHash } from "node:crypto";
+import { appUrl } from "@/lib/config";
 import { revalidatePath } from "next/cache";
 import { tenant, uuid } from "@/domains/tenants/access";
 import { serviceDb } from "@/lib/supabase/server";
 import { aiConfigured } from "@/lib/config";
+import { redactContacts } from "./inference";
 import { settingsSchema } from "./schema";
 import { normalizeImage } from "@/domains/catalog/images";
 import { groundedReply } from "./grounding";
@@ -153,8 +156,10 @@ export async function simulate(form: FormData) {
     });
     if (messageError) throw messageError;
     const result = await new OpenAICompatibleAdapter().interpret({
-      message: text,
-      history: (history || []).reverse(),
+      message: redactContacts(text),
+      history: (history || [])
+        .reverse()
+        .map((m) => ({ role: m.role, content: redactContacts(m.content) })),
       products,
       settings,
       imageDataUrl,
@@ -177,6 +182,39 @@ export async function simulate(form: FormData) {
       settings,
       Boolean(file),
     );
+    if (result.selection.intent === "purchase") {
+      const products = (fresh || []) as Product[];
+      const variant = result.selection.variant_id
+        ? products
+            .flatMap((p) => p.product_variants)
+            .find((v) => v.id === result.selection.variant_id)
+        : products.length === 1 && products[0].product_variants.length === 1
+          ? products[0].product_variants[0]
+          : undefined;
+      if (settings.checkout_enabled && !reply.needsHuman && variant?.id) {
+        const token = randomBytes(32).toString("base64url");
+        const { error } = await admin.rpc("create_ai_checkout", {
+          _org: organization.id,
+          _conversation: conversationId,
+          _variant: variant.id,
+          _quantity: result.selection.quantity,
+          _hash: createHash("sha256").update(token).digest("hex"),
+        });
+        if (!error)
+          reply.content +=
+            "\n\n" +
+            (reply.language === "fr"
+              ? "Récapitulatif privé à confirmer (simulation) :"
+              : reply.language === "ar"
+                ? "رابط خاص لتأكيد المحاكاة:"
+                : "رابط خاص لتأكيد التجربة:") +
+            "\n" +
+            appUrl() +
+            "/commande/" +
+            token;
+        else reply.needsHuman = true;
+      } else reply.needsHuman = true;
+    }
     const { data: currentSettings } = await client
       .from("ai_settings")
       .select("paused")
@@ -207,6 +245,7 @@ export async function simulate(form: FormData) {
       content: reply.content,
       product_ids: reply.productIds,
       needs_human: reply.needsHuman,
+      status: "approved",
     });
     revalidatePath("/app/assistant");
     return {

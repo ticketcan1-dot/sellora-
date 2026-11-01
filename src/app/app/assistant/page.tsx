@@ -1,3 +1,4 @@
+import { billingUsageSchema, estimateUsageCost } from "@/domains/billing/usage";
 import Link from "next/link";
 import { tenant } from "@/domains/tenants/access";
 import { aiConfigured } from "@/lib/config";
@@ -47,14 +48,7 @@ export default async function Page({
       { data: events, error: usageError },
       { data: subscription, error: subError },
     ] = await Promise.all([
-      client
-        .from("usage_events")
-        .select("input_tokens,output_tokens")
-        .eq("organization_id", organization.id)
-        .gte(
-          "created_at",
-          new Date().toISOString().slice(0, 10) + "T00:00:00Z",
-        ),
+      client.rpc("billing_usage", { _org: organization.id }),
       client
         .from("subscriptions")
         .select("trial_ends_at,ai_daily_limit")
@@ -62,28 +56,19 @@ export default async function Page({
         .single(),
     ]);
     if (usageError || subError) throw new Error("Utilisation indisponible");
-    usage = events?.length || 0;
-    tokens =
-      events?.reduce((s, e) => s + e.input_tokens + e.output_tokens, 0) || 0;
+    const totals = billingUsageSchema.parse(events);
+    usage = totals.ai_calls;
+    tokens = totals.input_tokens + totals.output_tokens;
     limit = subscription.ai_daily_limit;
-    trial = new Date(subscription.trial_ends_at).toLocaleDateString("fr-MA");
-    const inRate = process.env.AI_INPUT_USD_PER_MILLION;
-    const outRate = process.env.AI_OUTPUT_USD_PER_MILLION;
-    if (
-      inRate &&
-      outRate &&
-      Number.isFinite(Number(inRate)) &&
-      Number.isFinite(Number(outRate))
-    )
-      cost = (
-        (events || []).reduce(
-          (s, e) =>
-            s +
-            e.input_tokens * Number(inRate) +
-            e.output_tokens * Number(outRate),
-          0,
-        ) / 1000000
-      ).toFixed(4);
+    trial = new Date(subscription.trial_ends_at).toLocaleDateString("fr-MA", {
+      timeZone: "Africa/Casablanca",
+    });
+    const estimated = estimateUsageCost(
+      totals,
+      process.env.AI_INPUT_USD_PER_MILLION,
+      process.env.AI_OUTPUT_USD_PER_MILLION,
+    );
+    if (estimated !== null) cost = estimated.toFixed(4);
   }
   return (
     <>
@@ -107,6 +92,7 @@ export default async function Page({
       <AssistantPanel
         key={active?.id || "new"}
         settings={settingsSchema.parse(data)}
+        responseMode={data.mode}
         configured={aiConfigured()}
         canEdit={isManager}
         canSimulate={role !== "viewer"}
@@ -123,7 +109,9 @@ export default async function Page({
                 key={t.id}
                 href={`/app/assistant?conversation=${t.id}`}
               >
-                {new Date(t.created_at).toLocaleString("fr-MA")}
+                {new Date(t.created_at).toLocaleString("fr-MA", {
+                  timeZone: "Africa/Casablanca",
+                })}
               </Link>
             ))}
           </div>

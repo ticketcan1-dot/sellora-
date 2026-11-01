@@ -1,3 +1,4 @@
+import { authDestination } from "@/domains/auth/destinations";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/supabase/server";
 import { appUrl } from "@/lib/config";
@@ -9,9 +10,7 @@ export async function GET(request: NextRequest) {
     if (!error)
       return NextResponse.redirect(
         new URL(
-          request.nextUrl.searchParams.get("next") === "/recuperation"
-            ? "/recuperation"
-            : "/app",
+          authDestination(request.nextUrl.searchParams.get("next")),
           appUrl(),
         ),
       );

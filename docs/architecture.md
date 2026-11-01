@@ -1,17 +1,31 @@
-# Architecture Sellora AI
+# Architecture
 
-Next.js App Router, composants serveur par défaut ; formulaires interactifs en composants clients. Les actions serveur commencent par `getUser`, puis une vérification d’appartenance et de rôle. Le cookie de boutique n’est qu’un sélecteur, jamais une autorisation. Chaque lecture/écriture sensible filtre l’organisation ; PostgreSQL vérifie à nouveau via RLS. Les clés étrangères composites interdisent les références croisées.
+Next.js App Router fournit pages serveur, Server Actions et endpoints Meta/cron. Chaque action sensible authentifie le compte et vérifie son approbation, son appartenance et son rôle. Le cookie de boutique sélectionne un contexte ; il ne donne aucun droit. Les lectures filtrent l’organisation et PostgreSQL applique RLS et clés étrangères composites. Les opérations privilégiées sont des RPC à permissions explicites ; les clés serveur restent hors du navigateur.
 
-Les variantes portent les prix entiers (centimes de MAD) et stocks. `save_product` crée/modifie produit et variantes dans une transaction. Les variantes existantes ne sont pas supprimées implicitement afin de préserver les futures références de commandes. Les métriques sont agrégées en SQL, sans limite de pagination ni données fictives. Les commandes restent un schéma de préparation, sans parcours de commande livré.
+L’administration plateforme utilise une session signée HttpOnly séparée des rôles de boutique, avec limitation des tentatives, expiration et invalidation à changement d’identifiants. Les approbations sont auditées ; leur retrait bloque aussi les appels directs RLS.
 
-L’IA est un adaptateur serveur OpenAI-compatible multimodal. Le modèle classe l’intention et sélectionne des identifiants ; il ne rédige pas librement les faits commerciaux. Le serveur relit les prix/stocks et compose la réponse à partir des données autorisées. Les politiques sont renvoyées telles que configurées, sans traduction inventée. Cette protection limite volontairement la liberté conversationnelle du MVP.
+## Commerce
 
-Images : décodage avec sharp, limite 5 Mo/20 MP, rotation et réencodage WebP sans métadonnées. Images catalogue privées, liens signés de 15 minutes dans l’interface et 2 minutes pour le modèle. Une image client est traitée en mémoire et non stockée ; le fournisseur peut appliquer ses propres règles de conservation. Pour l’image, jusqu’à 12 photos du catalogue sont proposées au modèle, après un classement textuel simple, parmi les 100 derniers produits actifs. Toujours clarifier une ressemblance visuelle ; aucun seuil non calibré n’autorise une correspondance certaine.
+Prix entiers en centimes MAD, quantités entières, variantes persistantes. Les brouillons ne réservent pas le stock. La confirmation explicite verrouille les variantes et réserve une seule fois ; les annulations autorisées restituent une seule fois. Les états expédiés ou les encaissements imposent une revue avant annulation. Les encaissements manuels exigent une référence et ne prétendent pas vérifier un virement. Le document imprimé est un récapitulatif, pas une facture fiscale.
 
-`VisualEmbeddingAdapter` réserve le contrat d’un fournisseur d’embeddings. pgvector et l’index de recherche seront activés avec une dimension et un modèle explicitement choisis après évaluation. Il n’y a pas de recherche vectorielle active dans cette version ; le repli multimodal est opérationnel sous réserve de configuration et de validation du fournisseur.
+Un lien de commande conserve un devis, expire après 24 h et ne stocke que le hash du jeton. Le client confirme ses coordonnées, son consentement et le total. Le serveur revérifie prix, disponibilité et politique de livraison avant confirmation atomique ; les répétitions retournent la même commande. Les devis d’assistant exigent une activation commerçant et reprennent exclusivement ses frais/villes. Les simulations ne réservent aucun stock et restent exclues des indicateurs.
 
-L’essai commence à la création de la boutique et dure sept jours. La réservation d’une tentative verrouille l’abonnement pour empêcher les dépassements concurrents du quota quotidien (UTC). Échecs compris, 50 tentatives par défaut. Les coûts sont des estimations facultatives selon les tarifs fournis ; une requête interrompue peut avoir été facturée par le fournisseur sans tokens disponibles.
+## IA
 
-Les interfaces Meta incluent l’événement normalisé et la commande d’envoi approuvé. La vérification HMAC et le chiffrement AES-GCM sont des primitives testées, pas une intégration connectée. Aucun endpoint webhook, OAuth ni worker actif. L’unicité des événements et les champs de reprise préparent l’implémentation ultérieure. La fenêtre WhatsApp, l’opt-in et les permissions devront être vérifiés avant tout envoi.
+L’adaptateur multimodal OpenAI-compatible reçoit un contexte borné : historique récent, catalogue limité, FAQ et éventuellement images. Il classe langue/intention/références/variante/quantité ; le serveur produit les prix, stocks et politiques depuis la base. Les changements du catalogue invalident les propositions avant envoi. Une identification visuelle incertaine ou une image impose une reprise humaine. La recherche vectorielle optionnelle n’est pas active : modèle et dimension doivent être évalués avant activation.
 
-Les autres domaines sont préparés par le schéma et les contrats, sans prétendre livrer inbox réelle, équipe/invitations UI, paiement, export/suppression autonomes ou PWA. Les journaux d’audit ne conservent que l’acteur, l’action et l’identifiant de l’entité. Les credentials et événements techniques ne sont pas lisibles depuis le navigateur.
+Les images sont décodées et réencodées avec sharp, limitées à 5 Mo/20 MP et 1600 px, sans EXIF. Les images de messages reçus sont privées ; le bac à sable IA direct traite son image en mémoire. Les URL signées expirent rapidement. Le masquage textuel des coordonnées réduit les données envoyées mais ne garantit pas leur anonymisation, notamment dans les images.
+
+## Messagerie
+
+OAuth officiel/Embedded Signup, nonce court lié au compte et à la boutique, vérification serveur des actifs, jetons AES-GCM. Les webhooks sont vérifiés HMAC sur le corps brut, normalisés puis conservés avec déduplication et leases. Les messages entrants valides sont ingérés avant l’acquittement ; IA et médias sont traités par worker.
+
+La file sortante vérifie rôle actuel, compte approuvé, abonnement, fenêtre de 24 h, quotas, canal et suggestion. Seul un identifiant retourné par Meta autorise le statut envoyé. Les reçus sont monotones, y compris reçus arrivés avant la réponse d’envoi. Les timeouts, 5xx et leases d’envoi expirés deviennent indéterminés : aucune relance aveugle pouvant dupliquer un message. Les 429 explicites sont réessayables avec temporisation. La pause, le mode suggestion et la reprise humaine sont contrôlés avant les envois automatiques.
+
+`/api/jobs` exige un bearer secret et traite des lots bornés. Les tâches après réponse accélèrent le traitement, mais la file durable exige une planification fréquente en exploitation. Les emails de commandes utilisent une file Resend optionnelle avec clé d’idempotence ; l’absence de fournisseur ne produit pas de faux email envoyé.
+
+## Équipe, droits et exploitation
+
+Les invitations stockent un hash et exigent le bon email vérifié, une approbation et une consommation unique. Seul le propriétaire transfère la propriété ; un administrateur ne peut pas se promouvoir. Les abonnements sont des droits temporaires d’essai ou activés manuellement, jamais un paiement simulé. Les plafonds produits/membres/IA/messages sont vérifiés côté base, et les compteurs/métriques sont agrégés en SQL.
+
+Export, anonymisation, rétention et suppression nécessitent des droits explicites. Les actions UI nettoient les fichiers concernés et journalisent les opérations. Les pièces financières sont conservées selon la politique légale à définir. Le nettoyage technique réduit les payloads Meta anciens ; une politique de sauvegarde/restauration et les durées légales restent à configurer par l’exploitant. Aucun cache hors ligne de données privées.

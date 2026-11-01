@@ -50,7 +50,7 @@ select test.assert((select count(*)=1 from public.products),'viewer reads shop c
 select test.denied(format('insert into public.products(organization_id,name) values(%L,''Viewer product'')',:'org_a'),'viewer cannot edit catalog');
 select test.denied(format('insert into storage.objects(bucket_id,name) values(''catalog'',%L)',:'org_a'||'/viewer.webp'),'viewer cannot upload images');
 -- reserve_ai_usage uses an explicit exception for unauthorized roles.
-do $$ begin begin perform public.reserve_ai_usage((select organization_id from public.memberships limit 1)); exception when raise_exception then if sqlerrm='Forbidden' then raise notice 'PASS: viewer cannot reserve AI usage';return;else raise;end if;end;raise exception 'FAIL: viewer reserved AI';end $$;
+do $$ begin begin perform public.reserve_ai_usage((select organization_id from public.memberships limit 1)); exception when raise_exception or insufficient_privilege then if sqlerrm='Forbidden' then raise notice 'PASS: viewer cannot reserve AI usage';return;else raise;end if;end;raise exception 'FAIL: viewer reserved AI';end $$;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
 select public.save_product(:'org_a',null,'{"name":"Bracelet","status":"active","tags":[]}', '[{"sku":"ADMIN","name":"Standard","price_minor":10000,"stock":5}]');
 select test.assert((select count(*)=2 from public.products),'admin manages catalog');

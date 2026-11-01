@@ -5,9 +5,11 @@ import { PendingButton } from "./pending-button";
 export function AuthForm({
   mode,
   message,
+  returnTo,
 }: {
   mode: "signin" | "signup" | "reset";
   message?: string;
+  returnTo?: string;
 }) {
   const title =
     mode === "signup"
@@ -49,6 +51,7 @@ export function AuthForm({
           <Notice message={message} />
           <form action={authenticate}>
             <input type="hidden" name="mode" value={mode} />
+            <input type="hidden" name="next" value={returnTo || "/app"} />
             <label>
               Adresse email
               <input

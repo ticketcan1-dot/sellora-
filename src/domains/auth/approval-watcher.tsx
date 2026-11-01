@@ -1,6 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-export function ApprovalWatcher() {
+export function ApprovalWatcher({
+  destination = "/app",
+}: {
+  destination?: string;
+}) {
   const [message, setMessage] = useState(
     "Vérification automatique de la décision administrateur…",
   );
@@ -24,7 +28,7 @@ export function ApprovalWatcher() {
         if (!response.ok) throw new Error("status unavailable");
         const data = await response.json();
         if (data.status === "approved") {
-          window.location.replace("/app");
+          window.location.replace(destination);
           return;
         }
         setMessage(
@@ -46,7 +50,7 @@ export function ApprovalWatcher() {
       controller.abort();
       if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [destination]);
   return (
     <p role="status" aria-live="polite">
       {message}

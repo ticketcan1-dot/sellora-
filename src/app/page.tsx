@@ -88,8 +88,8 @@ export default function Home() {
             </h1>
             <p>
               Définissez le ton et les politiques de votre assistant. Essayez
-              vos scénarios dans un espace de simulation avant toute future
-              connexion à vos canaux.
+              vos scénarios dans un espace de simulation avant toute connexion à
+              vos canaux.
             </p>
             <p>
               <ShieldCheck
@@ -118,8 +118,9 @@ export default function Home() {
               </div>
             ))}
             <small>
-              Instagram et WhatsApp : intégrations futures soumises aux accès et
-              autorisations Meta. Aucun compte n’est connecté automatiquement.
+              Instagram et WhatsApp : connexions officielles soumises aux accès
+              et autorisations Meta. Aucun compte n’est connecté
+              automatiquement.
             </small>
           </div>
         </section>
@@ -128,7 +129,7 @@ export default function Home() {
           {[
             [
               "Sellora envoie-t-il déjà des messages ?",
-              "Non. Cette première version propose un bac à sable. Les connexions Instagram et WhatsApp officielles seront activées lors d’une prochaine étape.",
+              "Après configuration et autorisation Meta, vous pouvez connecter vos comptes officiels. Le mode suggestion permet de valider les réponses ; le mode automatique exige une activation explicite. Le bac à sable fonctionne séparément.",
             ],
             [
               "Que se passe-t-il sans fournisseur IA ?",

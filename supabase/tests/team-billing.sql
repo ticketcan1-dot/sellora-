@@ -1,0 +1,47 @@
+begin;
+create schema test;grant usage on schema test to authenticated,service_role;
+create function test.assert(ok boolean,label text) returns void language plpgsql as $$ begin if ok is distinct from true then raise exception 'FAIL: %',label;end if;raise notice 'PASS: %',label;end $$;
+create function test.fails(statement text,expected text,label text) returns void language plpgsql as $$ begin begin execute statement;exception when others then if position(expected in sqlerrm)>0 then raise notice 'PASS: %',label;return;end if;raise;end;raise exception 'FAIL: %',label;end $$;
+insert into auth.users(id,email,email_confirmed_at) values('40000000-0000-4000-8000-000000000001','team-owner@test.invalid',now()),('40000000-0000-4000-8000-000000000002','team-invite@test.invalid',now()),('40000000-0000-4000-8000-000000000003','team-other@test.invalid',now());update public.profiles set approval_status='approved';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
+select public.create_organization('Équipe Test') as org \gset
+select public.create_invitation(:'org','team-invite@test.invalid','agent',repeat('a',64)) as invite \gset
+select test.assert((select count(*)=1 from public.list_invitations(:'org')),'owner can inspect sanitized invitations');
+select test.fails('select token_hash from public.invitations','permission denied','invitation hashes are not browser-readable');
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000003',true);
+select test.fails('select public.accept_invitation(repeat(''a'',64))','Invitation unavailable','invitation cannot be stolen by another email');
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000002',true);
+select public.accept_invitation(repeat('a',64));
+select test.assert((select role='agent' from public.memberships where user_id=auth.uid() and organization_id=:'org'),'invitation grants only its declared role');
+select test.fails('select public.accept_invitation(repeat(''a'',64))','Invitation unavailable','invitation is single-use');
+select test.fails(format('select public.create_invitation(%L,''bad@test.invalid'',''admin'',repeat(''b'',64))',:'org'),'Forbidden','agent cannot invite administrators');
+select test.fails(format('select public.manage_member(%L,%L,''owner'')',:'org','40000000-0000-4000-8000-000000000002'),'Forbidden','member cannot promote themselves');
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
+select public.manage_member(:'org','40000000-0000-4000-8000-000000000002','admin');
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000002',true);
+select test.fails(format('select public.create_invitation(%L,''bad@test.invalid'',''admin'',repeat(''b'',64))',:'org'),'Forbidden','shop admin cannot create another admin invitation');
+select test.fails(format('select public.update_shop(%L,%L)',:'org','{"name":"Équipe Test","contact_email":"","city":"","retention_days":365,"low_stock_threshold":5,"is_active":false}'),'Only owner','shop admin cannot deactivate owner space');
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
+select public.request_plan(:'org','business');select public.request_plan(:'org','premium');
+select test.assert((select count(*)=1 from public.billing_requests where organization_id=:'org'),'billing request is idempotent and does not create a payment');
+select test.fails(format('select public.admin_activate_plan(%L,''premium'',30,''forged'')',:'org'),'permission denied','tenant cannot activate a paid plan');
+reset role;set local role service_role;
+select public.admin_activate_plan(:'org','business',30,'admin@test.invalid');
+select test.assert((select status='manual' and ai_daily_limit=500 and manual_until>now() from public.subscriptions where organization_id=:'org'),'platform manual activation has a bounded duration and quota');
+select public.admin_update_plan('business','{"products_limit":2000,"members_limit":15,"ai_daily_limit":600,"messages_daily_limit":1000,"price_mad_minor":null}','admin@test.invalid');
+select test.assert((select ai_daily_limit=600 from public.subscriptions where organization_id=:'org'),'plan quota changes propagate to active subscriptions');
+select public.admin_update_plan('starter','{"products_limit":200,"members_limit":5,"ai_daily_limit":37,"messages_daily_limit":100,"price_mad_minor":null}','admin@test.invalid');
+set local role authenticated;
+select public.create_organization('Quota updated starter') as quota_org \gset
+select test.assert((select ai_daily_limit=37 from public.subscriptions where organization_id=:'quota_org'),'new shops inherit configured plan quotas');
+reset role;set local role service_role;
+select public.admin_activate_plan(:'org','business',0,'admin@test.invalid');
+set local role authenticated;
+select test.fails(format('select public.reserve_ai_usage(%L)',:'org'),'Trial expired','expired manual activation blocks usage');
+select public.transfer_ownership(:'org','40000000-0000-4000-8000-000000000002');
+select test.assert((select role='admin' from public.memberships where organization_id=:'org' and user_id=auth.uid()),'ownership transfer demotes previous owner atomically');
+select test.fails(format('select public.delete_shop(%L,''Équipe Test'')',:'org'),'Owner','previous owner cannot delete space after transfer');
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000002',true);
+select public.delete_shop(:'org','Équipe Test');
+rollback;

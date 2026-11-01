@@ -111,6 +111,12 @@ export default async function Page({
     <main className="public-section" style={{ maxWidth: 1200 }}>
       <div className="row between">
         <Brand />
+        <Link href="/admin/etat" className="btn secondary">
+          État technique
+        </Link>
+        <Link href="/admin/abonnements" className="btn secondary">
+          Abonnements
+        </Link>
         <form action={adminLogout}>
           <PendingButton className="btn secondary">
             Se déconnecter
@@ -176,7 +182,9 @@ export default async function Page({
                   <tr key={a.user_id}>
                     <td>{a.email || "Adresse indisponible"}</td>
                     <td>
-                      {new Date(a.created_at).toLocaleDateString("fr-MA")}
+                      {new Date(a.created_at).toLocaleDateString("fr-MA", {
+                        timeZone: "Africa/Casablanca",
+                      })}
                     </td>
                     <td>{a.email_confirmed_at ? "Confirmé" : "À confirmer"}</td>
                     <td>

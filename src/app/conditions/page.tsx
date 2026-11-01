@@ -10,8 +10,10 @@ export default function Page() {
       </div>
       <h2>Service pilote</h2>
       <p>
-        La première version comprend boutiques, catalogue et simulation
-        d’assistant. Les intégrations Meta et paiements ne sont pas actifs.
+        Le service comprend boutiques, catalogue, clients, commandes,
+        conversations et assistant. Les connexions Meta exigent configuration et
+        autorisations officielles. Les encaissements sont enregistrés
+        manuellement ; aucun prestataire de paiement en ligne n’est activé.
         Aucun résultat de vente ou d’identification visuelle n’est garanti.
       </p>
       <h2>Responsabilités</h2>
@@ -22,11 +24,13 @@ export default function Page() {
       </p>
       <h2>Essai et coûts</h2>
       <p>
-        L’essai IA dure 7 jours à compter de la création de la boutique, avec 50
-        tentatives quotidiennes par défaut. Les tentatives échouées comptent
-        dans la limite. Les tarifs futurs, engagements de service, règles de
-        suspension et modalités de résiliation doivent être définis avant la
-        commercialisation. Aucun paiement n’est déclenché dans cette version.
+        L’essai IA dure 7 jours à compter de la création de la boutique, avec
+        des limites quotidiennes visibles dans la facturation (50 tentatives par
+        défaut pour Starter). Les tentatives échouées comptent dans la limite.
+        Les tarifs futurs, engagements de service, règles de suspension et
+        modalités de résiliation doivent être définis avant la
+        commercialisation. Une demande de formule ne déclenche aucun paiement.
+        Une activation manuelle doit être convenue avec l’administrateur.
       </p>
       <h2>Éléments juridiques à compléter</h2>
       <p>

@@ -1,66 +1,37 @@
-# Bilan de livraison
+# Bilan de livraison — extension applicative
 
-## Code livré
+## Modules livrés
 
-- Fondations : Next.js/TypeScript strict, Tailwind, composants UI accessibles, identité Sellora, pages publiques, tarifs explicitement provisoires et documents juridiques à compléter.
-- Auth/boutiques : sessions Supabase, confirmation email et récupération, création atomique, sélection multi-boutiques, onboarding persistant, quatre rôles et contrôle serveur/RLS.
-- Catalogue : CRUD transactionnel, variantes/SKU/prix MAD/stocks, images privées validées et réencodées, filtres/recherche, lecture paginée interne sans troncature au plafond PostgREST, import CSV avec mapping/rapport.
-- Dashboard : agrégats SQL sur données réelles, zéros sans données, distinction confirmé/réglé et exclusion des simulations.
-- Assistant : réglages par boutique, simulation persistante, adaptateur multimodal, interprétation FR/AR/darija, sélection de références et réponse commerciale composée par le serveur. Vision en repli multimodal avec clarification systématique ; pas de recherche vectorielle active.
-- Sécurité/coûts : migrations avec permissions explicites, RLS et clés étrangères composites, audit, essai sept jours, quota atomique, tokens et estimation facultative de coût.
-- Préparation Meta : contrats, états non configurés, primitives signature/chiffrement testées, aucun canal réel ni envoi.
-- Documentation, `.env.example`, CI et suites de tests. Aucun secret dans les fichiers suivis ou livrables.
+L’extension conserve l’authentification, l’approbation administrateur, les boutiques, le catalogue et le CSV. Elle ajoute clients et consentements, commandes transactionnelles, confirmation client par lien privé, propositions d’achat IA encadrées, encaissements manuels, récapitulatifs imprimables, inbox, notes, affectation, suggestions, reprise humaine, équipe/invitations, transfert de propriété, notifications, export/anonymisation/rétention/suppression, droits et quotas de formules, administration des abonnements et suivi opérationnel.
 
-## Vérifications exécutées
+Les connexions Instagram/WhatsApp utilisent OAuth/Embedded Signup, webhooks signés, stockage chiffré des jetons et workers avec déduplication, reçus et traitement des erreurs. Elles restent **non connectées** tant que l’application Meta et ses permissions ne sont pas configurées. Le fournisseur IA et l’email de commandes sont également externes et facultatifs. Aucun résultat IA, message envoyé ou paiement accepté n’est inventé.
 
-| Vérification | Résultat |
-| --- | --- |
-| `npm run lint` | Réussi, sans avertissement |
-| `npm run typecheck` | Réussi |
-| `npm run format:check` | Réussi |
-| `npm run build` | Réussi, y compris avec configuration Supabase |
-| `npm run test` | 34 tests réussis |
-| `npm run db:test:postgres` | 39 vérifications SQL réussies |
-| `npm run test:e2e` | 8 tests publics réussis et 2 scénarios live réussis, desktop et mobile |
-| Intégration Supabase HTTP réelle | Réussie : Auth, boutiques, produits, métriques, isolation, Storage et refus de lecture des secrets |
-| `npm audit --omit=dev` | Aucune vulnérabilité signalée |
+## Vérifications de cette extension
 
-Les scénarios navigateur couvrent desktop et 360 px, pages publiques, formulaires, refus d’identifiants incorrects et protection des routes privées. Après configuration des clés, le refus d’identifiants a été testé contre Supabase réel. Aucun compte client n’a été créé par ces tests publics.
+| Vérification                            | Résultat                                             |
+| --------------------------------------- | ---------------------------------------------------- |
+| TypeScript et compilation de production | Réussis                                              |
+| Tests unitaires                         | 71 réussis                                           |
+| Harnais PostgreSQL 17                   | 132 contrôles réussis, migrations 001–009 appliquées |
+| Parcours navigateur publics             | 10 réussis, desktop et mobile 360 px                 |
+| Audit des dépendances de production     | Aucune vulnérabilité signalée                        |
 
-Les vérifications SQL ont tourné sur PostgreSQL 17 léger avec émulation des surfaces `auth.uid()`/Storage. Les migrations et politiques sont exécutées réellement ; les services Auth/Storage HTTP ne sont pas validés par ce harnais.
+Les contrôles SQL couvrent notamment isolation, approbation, droits, réservations de stock, doubles confirmations, annulations, encaissements partiels et doublons, invitations, transfert de propriété, quotas, événements/reçus, fenêtres de réponse et confirmation de devis humains/IA. Le harnais émule les surfaces minimales Auth/Storage : ce n’est pas une pile Supabase HTTP complète.
 
-La pile Supabase locale complète a échoué pendant le téléchargement/extraction des images, faute d’espace disque. Les seules images auxiliaires inutilisées téléchargées pour cette tâche ont été nettoyées. Le test complet Supabase n’est pas annoncé réussi.
+Les tests IA/Meta utilisent des adaptateurs mockés et ne valident pas un fournisseur réel. Aucun message n’a été envoyé à un client réel. Les scénarios E2E privés supplémentaires sont fournis dans `tests/e2e/commerce.spec.ts` : devis, confirmation client, stock, paiement manuel, simulation, invitation, export et demande de formule, avec nettoyage des fixtures.
 
-## Configuration distante constatée
+## Activation distante en attente
 
-Projet Supabase fourni accessible. Les clés ont été installées dans `.env.local`, permissions 0600 et fichier ignoré par Git. L’accès administratif Auth a été vérifié sans afficher d’utilisateurs ou de secrets. Les tables étaient absentes lors de la première vérification. Le script d’installation a ensuite été exécuté par l’utilisateur ; les tests HTTP réels et les parcours navigateur ont confirmé le fonctionnement du schéma installé.
+La base Supabase existante contient les migrations 001–003, déjà validées lors de la livraison précédente (Auth/Storage HTTP, catalogue, approbation et 14 scénarios navigateur). Au dernier contrôle de cette extension, les tables des migrations suivantes étaient encore absentes. **La recette HTTP complète des nouveaux modules attend donc l’exécution de `supabase/upgrade.sql`**, puis les tests d’intégration/live décrits dans le README. Ce script a été testé localement et ne doit être exécuté qu’une fois sur la base existante.
 
-Les clés API ne permettent pas d’exécuter les migrations SQL. Le script `supabase/install.sql`, sans identifiants, regroupe les migrations dans une transaction pour une installation initiale par l’éditeur SQL. Après son exécution, `test:integration` et les scénarios navigateur live ont réussi sur les boutiques et comptes temporaires. Ceux-ci ont été nettoyés. Le parcours photo a d’abord révélé une fixture PNG invalide ; elle a été remplacée par une image générée et les deux parcours ont été revérifiés avec succès.
+Ne pas déployer cette extension sur le domaine de production avant la migration : les nouvelles pages utilisent ces tables et fonctions. Les clés API disponibles ne peuvent pas exécuter du DDL. Ne pas réexécuter `install.sql` sur la base existante.
 
-## Routes disponibles
+## Limites explicites
 
-Publiques : `/`, `/tarifs`, `/connexion`, `/inscription`, `/mot-de-passe`, `/confidentialite`, `/conditions`.
+- Activation IA et validation linguistique/vision réelles : clé et modèle requis ; recherche vectorielle non activée.
+- Activation Meta : application, actifs professionnels, permissions/revue et recette réelle requises. Pas d’envoi de templates/campagnes hors fenêtre dans Sellora.
+- Production messagerie : scheduler fréquent nécessaire ; le cron quotidien livré convient au pilote et ne garantit pas un traitement rapide.
+- Paiement : encaissements et activation des abonnements manuels ; aucun PSP, prélèvement ou facture fiscale certifiée.
+- Exploitation et lancement public : SMTP, sauvegardes/restauration, alertes, budgets, identité juridique, textes définitifs, durées légales et démarches applicables à finaliser par l’exploitant.
 
-Protégées : `/recuperation`, `/app`, `/app/boutiques`, `/app/catalogue`, `/app/assistant`, `/app/canaux`.
-
-Callback Auth : `/auth/callback`. Les mutations utilisent les Server Actions authentifiées ; aucun endpoint Meta ni paiement actif.
-
-## Actions manuelles restantes
-
-1. Migrations déjà appliquées : vérifier encore les emails réels de confirmation/récupération et les callbacks de production. Ne pas réexécuter le script initial sur les tables existantes.
-2. Renouveler la clé secrète partagée dans la conversation avant mise en production, mettre à jour la configuration sécurisée et configurer un SMTP adapté.
-3. Fournir un modèle multimodal et sa clé dans les secrets de l’environnement pour les tests réels FR/AR/darija et images. Vérifier sa rétention et ses coûts.
-4. Exécuter les scénarios externes de `docs/acceptance.md`, puis décider le déploiement. Aucun déploiement, commit ni push GitHub effectué.
-
-Limites ultérieures : invitations/équipe UI, export/suppression autonomes, conservation opérationnelle, inbox/commandes complètes, paiement, intégrations Meta approuvées, recherche vectorielle calibrée et PWA.
-
-## Complément : approbation administrateur des comptes
-
-- Route `/admin` protégée par identifiants serveur, session signée et limitation des tentatives ; les administrateurs de boutiques ne sont pas administrateurs de la plateforme.
-- États `pending`, `approved`, `rejected`, décisions auditées et fonctions SQL réservées au serveur. Les comptes existants et nouveaux demandent une approbation explicite.
-- Page `/attente` et API privée de suivi ; une session utilisateur valide accède automatiquement à son espace dans les cinq secondes après approbation. La confirmation email est conservée.
-- Les gardes serveur et la RLS bloquent aussi les appels directs : pas d’auto-approbation ni de contournement avec une session ancienne.
-- Migration 003 exécutée par l’utilisateur et disponibilité des fonctions vérifiée sur Supabase réel. Aucun compte ordinaire n’a été approuvé automatiquement par les tests.
-- Vérifications : 39 tests unitaires réussis ; 58 contrôles SQL réussis ; intégration HTTP Supabase (attente, auto-approbation refusée, approbation, retrait, catalogue et Storage) réussie ; 14 scénarios navigateur validés sur desktop/mobile, dont le nouveau parcours à deux sessions. Lint, TypeScript, format et build réussis.
-- Les premiers essais du nouveau scénario ont révélé un sélecteur de test trop strict pour le filtre de statut. Le sélecteur a été corrigé et les deux scénarios d’approbation ont ensuite réussi. Les comptes de test ont été nettoyés.
-- Configuration Vercel encore nécessaire : `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET` (au moins 32 caractères aléatoires), puis redéploiement. Les identifiants choisis ont été configurés uniquement dans `.env.local`, ignoré par Git. Guide : `docs/admin.md`.
+Ces dépendances externes ne peuvent pas être déclarées terminées par les tests du code. Voir `production.md`, `meta.md` et `acceptance.md`.

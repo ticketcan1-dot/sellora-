@@ -36,6 +36,8 @@ const selection = {
   product_ids: [id],
   ambiguous: false,
   faq_index: -1,
+  variant_id: null,
+  quantity: 1,
 } as const;
 afterEach(() => vi.unstubAllGlobals());
 describe("réponses ancrées", () => {
