@@ -14,6 +14,12 @@ Socle SaaS pour commerçants marocains : boutiques isolées, catalogue Supabase,
 
 **Pas encore livré** : UI équipe/invitations, workflow complet de commandes et clients, export/suppression autonomes, recherche vectorielle calibrée, workers Meta, PWA et administration de facturation. Ces éléments nécessitent des lots ultérieurs. La première version ne doit pas être annoncée « production-ready ».
 
+## Approbation des comptes
+
+L’accès commerçant nécessite désormais une approbation depuis `/admin`. Les nouveaux comptes et les comptes existants après migration sont en attente ; un utilisateur connecté est dirigé automatiquement vers son espace après approbation. La confirmation email reste distincte.
+
+Sur une installation existante, appliquer uniquement la migration `202611010003_account_approval.sql`, puis ajouter `ADMIN_EMAIL`, `ADMIN_PASSWORD` et `ADMIN_SESSION_SECRET` aux variables serveur Vercel et redéployer. Voir [le guide administrateur](docs/admin.md). Aucun identifiant administrateur n’est codé en dur.
+
 ## Démarrer
 
 Prérequis : Node.js 24 LTS et npm. Docker est nécessaire uniquement à Supabase local et au harnais PostgreSQL.
@@ -38,7 +44,7 @@ La CLI peut télécharger plusieurs Go d’images et nécessite davantage de dis
 
 ### Supabase hébergé
 
-Créer un projet, choisir sa région, puis appliquer les deux migrations SQL de `supabase/migrations/` dans l’ordre avec la CLI liée au projet (`npx supabase link --project-ref ...`, puis `npx supabase db push`). Vérifier le projet ciblé avant de pousser. Si vous utilisez l’éditeur SQL du Dashboard plutôt que la CLI, exécuter `supabase/install.sql` une seule fois sur une base sans tables Sellora ; ce fichier regroupe les migrations dans une transaction. Ne pas le réappliquer par la CLI sur cette même base sans réconcilier l’historique des migrations.
+Créer un projet, choisir sa région, puis appliquer les migrations SQL de `supabase/migrations/` dans l’ordre avec la CLI liée au projet (`npx supabase link --project-ref ...`, puis `npx supabase db push`). Vérifier le projet ciblé avant de pousser. Si vous utilisez l’éditeur SQL du Dashboard plutôt que la CLI, exécuter `supabase/install.sql` une seule fois sur une base sans tables Sellora ; ce fichier regroupe les migrations dans une transaction. Ne pas le réappliquer par la CLI sur cette même base sans réconcilier l’historique des migrations.
 
 Configurer Auth : confirmation email activée, mot de passe minimum 12 caractères, Site URL correspondant à l’application et URLs de retour autorisées :
 
@@ -59,6 +65,8 @@ Configurer un SMTP de production dans Supabase pour les emails de confirmation/r
 | `AI_API_KEY`, `AI_MODEL` | Fournisseur avec vision et réponses JSON ; serveur uniquement |
 | `AI_INPUT_USD_PER_MILLION`, `AI_OUTPUT_USD_PER_MILLION` | Tarifs optionnels, pour l’estimation de coût ; vérifier ceux du fournisseur |
 | `META_APP_ID`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` | Réservés au futur lot Meta, inutilisés pour la connexion actuellement |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Identifiants administrateur globaux, serveur uniquement |
+| `ADMIN_SESSION_SECRET` | Secret aléatoire d’au moins 32 caractères pour signer les sessions admin |
 | `CHANNEL_ENCRYPTION_KEY` | Clé base64 de 32 octets, pour les futurs jetons chiffrés |
 
 Ne jamais utiliser une clé privilégiée dans une variable `NEXT_PUBLIC_*`. Ne committer aucun `.env.local`. Les variables publiques doivent être disponibles avant le build. Fournir également toutes les variables serveur au runtime. Redémarrer/reconstruire après changement de configuration.

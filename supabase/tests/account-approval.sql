@@ -1,0 +1,50 @@
+begin;
+create schema test;
+grant usage on schema test to authenticated,anon,service_role;
+create function test.assert(ok boolean,label text) returns void language plpgsql as $$ begin if ok is distinct from true then raise exception 'FAIL: %',label;end if;raise notice 'PASS: %',label;end $$;
+create function test.denied(statement text,label text) returns void language plpgsql as $$ begin
+ begin execute statement; exception when insufficient_privilege or check_violation then raise notice 'PASS: %',label;return;end;
+ raise exception 'FAIL (not denied): %',label;end $$;
+insert into auth.users(id,email) values('20000000-0000-4000-8000-000000000001','pending@test.invalid');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','20000000-0000-4000-8000-000000000001',true);
+select test.assert((select approval_status='pending' from public.profiles where id=auth.uid()),'new account defaults to pending and can read own status');
+select test.denied('update public.profiles set approval_status=''approved'' where id=auth.uid()','user cannot self-approve');
+select test.denied('select public.create_organization(''Forbidden shop'')','pending account cannot create shop');
+select test.denied('select public.set_account_approval(auth.uid(),''approved'',''forged@test.invalid'')','authenticated user cannot invoke approval RPC');
+select test.denied('select * from public.admin_list_accounts()','normal user cannot list accounts');
+select test.denied('select * from public.platform_audit_logs','normal user cannot read platform logs');
+select test.denied('select public.reserve_admin_login(repeat(''a'',64))','normal user cannot reserve admin login directly');
+update public.profiles set display_name='Mon nom' where id=auth.uid();
+select test.assert((select display_name='Mon nom' from public.profiles where id=auth.uid()),'pending user can update own display name without approval rights');
+reset role;
+set local role service_role;
+select public.set_account_approval('20000000-0000-4000-8000-000000000001','approved','admin@test.invalid');
+select test.assert((select count(*)=1 from public.platform_audit_logs where target_user_id='20000000-0000-4000-8000-000000000001'),'approval is audited');
+select public.set_account_approval('20000000-0000-4000-8000-000000000001','approved','admin@test.invalid');
+select test.assert((select count(*)=1 from public.platform_audit_logs where target_user_id='20000000-0000-4000-8000-000000000001'),'repeated approval is idempotent');
+select test.assert((select count(*)=1 from public.admin_list_accounts('approved','pending@test.invalid',1)),'admin can search accounts');
+set local role authenticated;
+select public.create_organization('Approved shop') as org \gset
+select test.assert((select count(*)=1 from public.organizations),'approved account accesses shop');
+reset role;
+set local role service_role;
+select public.set_account_approval('20000000-0000-4000-8000-000000000001','rejected','admin@test.invalid');
+set local role authenticated;
+select test.assert((select count(*)=0 from public.organizations),'revoked account immediately loses database access');
+select test.assert((select count(*)=0 from public.memberships),'revoked account cannot list memberships');
+select test.denied(format('insert into storage.objects(bucket_id,name) values(''catalog'',%L)',:'org'||'/forbidden.webp'),'revoked account cannot upload image');
+select test.denied('select public.create_organization(''Another shop'')','revoked account cannot create another shop');
+reset role;
+set local role service_role;
+do $$ declare i integer;begin
+ for i in 1..10 loop
+ if not public.reserve_admin_login(repeat('b',64)) then raise exception 'FAIL: attempts blocked too early';end if;
+ end loop;
+ if public.reserve_admin_login(repeat('b',64)) then raise exception 'FAIL: admin rate limit not enforced';end if;
+ raise notice 'PASS: admin login rate limit enforced across requests';
+ end $$;
+set local role anon;
+select test.denied('select public.set_account_approval(''20000000-0000-4000-8000-000000000001'',''approved'',''forged'')','anonymous cannot approve accounts');
+select test.denied('select * from public.admin_list_accounts()','anonymous cannot list accounts');
+rollback;

@@ -5,7 +5,7 @@ import { db } from "@/lib/supabase/server";
 import { configured } from "@/lib/config";
 import { z } from "zod";
 export type Role = "owner" | "admin" | "agent" | "viewer";
-export async function session() {
+export async function authenticatedSession() {
   if (!configured())
     redirect(
       "/connexion?message=Configurez%20Supabase%20pour%20ouvrir%20votre%20espace.",
@@ -17,6 +17,20 @@ export async function session() {
   } = await client.auth.getUser();
   if (error || !user) redirect("/connexion");
   return { client, user };
+}
+export async function session() {
+  const current = await authenticatedSession();
+  const { data, error } = await current.client
+    .from("profiles")
+    .select("approval_status")
+    .eq("id", current.user.id)
+    .single();
+  if (error)
+    throw new Error(
+      "Impossible de vérifier votre accès. La migration 003 doit être appliquée.",
+    );
+  if (data.approval_status !== "approved") redirect("/attente");
+  return current;
 }
 export async function tenant(
   roles: Role[] = ["owner", "admin", "agent", "viewer"],

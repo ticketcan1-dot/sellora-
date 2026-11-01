@@ -1,5 +1,5 @@
 import { updatePassword } from "@/domains/auth/actions";
-import { session } from "@/domains/tenants/access";
+import { authenticatedSession } from "@/domains/tenants/access";
 import { Brand, Notice } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 export default async function Page({
@@ -7,7 +7,7 @@ export default async function Page({
 }: {
   searchParams: Promise<{ message?: string }>;
 }) {
-  await session();
+  await authenticatedSession();
   const { message } = await searchParams;
   return (
     <main className="legal">

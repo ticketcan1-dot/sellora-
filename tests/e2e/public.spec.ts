@@ -48,3 +48,19 @@ test("documents juridiques identifiés comme provisoires", async ({ page }) => {
     }),
   ).toBeVisible();
 });
+test("URL admin protégée et formulaire distinct des comptes commerçants", async ({
+  page,
+}) => {
+  await page.goto("/admin");
+  await expect(
+    page.getByRole("heading", { name: "Accès administrateur" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Adresse email administrateur")).toBeVisible();
+  await expect(page.getByLabel("Mot de passe administrateur")).toHaveAttribute(
+    "type",
+    "password",
+  );
+  await expect(
+    page.getByRole("button", { name: "Approuver", exact: true }),
+  ).toHaveCount(0);
+});

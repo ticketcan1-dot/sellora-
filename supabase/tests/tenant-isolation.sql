@@ -6,6 +6,7 @@ create function test.denied(statement text,label text) returns void language plp
  begin execute statement; exception when insufficient_privilege or check_violation or foreign_key_violation then raise notice 'PASS: %',label;return;end;
  raise exception 'FAIL (not denied): %',label;end $$;
 insert into auth.users(id,email) values('10000000-0000-4000-8000-000000000001','owner-a@test.invalid'),('10000000-0000-4000-8000-000000000002','owner-b@test.invalid'),('10000000-0000-4000-8000-000000000003','agent@test.invalid'),('10000000-0000-4000-8000-000000000004','viewer@test.invalid'),('10000000-0000-4000-8000-000000000005','admin@test.invalid');
+update public.profiles set approval_status='approved';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
 select public.create_organization('Boutique A') as org_a \gset

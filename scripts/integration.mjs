@@ -31,6 +31,37 @@ try {
     assert.ifError(
       (await client.auth.signInWithPassword({ email, password })).error,
     );
+    const pending = await client
+      .from("profiles")
+      .select("approval_status")
+      .eq("id", data.user.id)
+      .single();
+    assert.ifError(pending.error);
+    assert.equal(pending.data.approval_status, "pending");
+    assert.ok(
+      (
+        await client.rpc("create_organization", {
+          shop_name: "Must remain blocked",
+        })
+      ).error,
+    );
+    assert.ok(
+      (
+        await client
+          .from("profiles")
+          .update({ approval_status: "approved" })
+          .eq("id", data.user.id)
+      ).error,
+    );
+    assert.ifError(
+      (
+        await admin.rpc("set_account_approval", {
+          target: data.user.id,
+          new_status: "approved",
+          admin_email: "test-admin@example.invalid",
+        })
+      ).error,
+    );
     clients.push(client);
     const shop = await client.rpc("create_organization", {
       shop_name: `Isolated test ${i}`,
@@ -82,8 +113,30 @@ try {
   assert.ok(other.error, "Other tenant must not obtain a signed URL");
   assert.ok((await clients[0].from("channel_credentials").select("*")).error);
   await admin.storage.from("catalog").remove([path]);
+  assert.ifError(
+    (
+      await admin.rpc("set_account_approval", {
+        target: created[0],
+        new_status: "rejected",
+        admin_email: "test-admin@example.invalid",
+      })
+    ).error,
+  );
+  const revoked = await clients[0]
+    .from("products")
+    .select("id")
+    .eq("id", product.data);
+  assert.ifError(revoked.error);
+  assert.equal(revoked.data.length, 0);
+  assert.ok(
+    (
+      await clients[0].rpc("create_organization", {
+        shop_name: "Revoked must remain blocked",
+      })
+    ).error,
+  );
   console.log(
-    "PASS: Supabase Auth, organization RPC, catalog, metrics, tenant isolation, Storage signed URLs, credential denial",
+    "PASS: Supabase Auth, pending approval, self-approval denied, admin approval, access revocation, organization RPC, catalog, metrics, tenant isolation, Storage signed URLs, credential denial",
   );
 } finally {
   // Keep test-project cleanup explicit and reject any backend errors.

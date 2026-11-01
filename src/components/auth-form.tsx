@@ -41,7 +41,7 @@ export function AuthForm({
           <h1>{title}</h1>
           <p>
             {mode === "signup"
-              ? "Créez votre espace et configurez votre première boutique."
+              ? "Créez votre compte. Un administrateur doit autoriser votre accès avant l’ouverture de votre boutique."
               : mode === "reset"
                 ? "Recevez un lien de récupération par email."
                 : "Connectez-vous pour retrouver votre boutique."}
@@ -65,14 +65,14 @@ export function AuthForm({
                 <input
                   type="password"
                   name="password"
-                  minLength={12}
+                  minLength={mode === "signup" ? 12 : 1}
                   maxLength={128}
                   required
                   autoComplete={
                     mode === "signup" ? "new-password" : "current-password"
                   }
                 />
-                <small>12 caractères minimum.</small>
+                {mode === "signup" && <small>12 caractères minimum.</small>}
               </label>
             )}
             <PendingButton>

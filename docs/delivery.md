@@ -53,3 +53,14 @@ Callback Auth : `/auth/callback`. Les mutations utilisent les Server Actions aut
 4. Exécuter les scénarios externes de `docs/acceptance.md`, puis décider le déploiement. Aucun déploiement, commit ni push GitHub effectué.
 
 Limites ultérieures : invitations/équipe UI, export/suppression autonomes, conservation opérationnelle, inbox/commandes complètes, paiement, intégrations Meta approuvées, recherche vectorielle calibrée et PWA.
+
+## Complément : approbation administrateur des comptes
+
+- Route `/admin` protégée par identifiants serveur, session signée et limitation des tentatives ; les administrateurs de boutiques ne sont pas administrateurs de la plateforme.
+- États `pending`, `approved`, `rejected`, décisions auditées et fonctions SQL réservées au serveur. Les comptes existants et nouveaux demandent une approbation explicite.
+- Page `/attente` et API privée de suivi ; une session utilisateur valide accède automatiquement à son espace dans les cinq secondes après approbation. La confirmation email est conservée.
+- Les gardes serveur et la RLS bloquent aussi les appels directs : pas d’auto-approbation ni de contournement avec une session ancienne.
+- Migration 003 exécutée par l’utilisateur et disponibilité des fonctions vérifiée sur Supabase réel. Aucun compte ordinaire n’a été approuvé automatiquement par les tests.
+- Vérifications : 39 tests unitaires réussis ; 58 contrôles SQL réussis ; intégration HTTP Supabase (attente, auto-approbation refusée, approbation, retrait, catalogue et Storage) réussie ; 14 scénarios navigateur validés sur desktop/mobile, dont le nouveau parcours à deux sessions. Lint, TypeScript, format et build réussis.
+- Les premiers essais du nouveau scénario ont révélé un sélecteur de test trop strict pour le filtre de statut. Le sélecteur a été corrigé et les deux scénarios d’approbation ont ensuite réussi. Les comptes de test ont été nettoyés.
+- Configuration Vercel encore nécessaire : `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET` (au moins 32 caractères aléatoires), puis redéploiement. Les identifiants choisis ont été configurés uniquement dans `.env.local`, ignoré par Git. Guide : `docs/admin.md`.

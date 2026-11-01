@@ -28,7 +28,11 @@ export async function authenticate(form: FormData) {
     });
     go(path, "Si ce compte existe, un lien de récupération sera envoyé.");
   }
-  const password = z.string().min(12).max(128).safeParse(form.get("password"));
+  const password = z
+    .string()
+    .min(mode === "signup" ? 12 : 1)
+    .max(128)
+    .safeParse(form.get("password"));
   if (!password.success)
     go(path, "Le mot de passe doit comporter entre 12 et 128 caractères.");
   if (mode === "signup") {
@@ -39,7 +43,7 @@ export async function authenticate(form: FormData) {
     });
     if (error)
       go(path, "Inscription impossible. Réessayez ou contactez l’assistance.");
-    go("/connexion", "Consultez votre email pour confirmer votre inscription.");
+    redirect("/attente?inscription=1");
   }
   const { error } = await client.auth.signInWithPassword({
     email: email.data,

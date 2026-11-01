@@ -21,6 +21,15 @@ test("parcours réel boutique → catalogue → photo → réglages → dashboar
   expect(error).toBeNull();
   const id = data.user!.id;
   try {
+    expect(
+      (
+        await admin.rpc("set_account_approval", {
+          target: id,
+          new_status: "approved",
+          admin_email: "test-admin@example.invalid",
+        })
+      ).error,
+    ).toBeNull();
     await page.goto("/connexion");
     await page.getByLabel("Adresse email").fill(email);
     await page.getByLabel("Mot de passe", { exact: false }).fill(password);
